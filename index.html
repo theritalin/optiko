@@ -69,6 +69,8 @@ canvas{width:100%;display:block;border-radius:12px;border:1px solid var(--line);
 .kc{border:1px dashed #888;padding:2.5mm;font-size:7pt;overflow:hidden}.kc h4{margin:0 0 1.2mm;font-size:8.5pt;display:flex;justify-content:space-between}
 .kd{display:flex;flex-wrap:wrap;margin-bottom:.8mm;line-height:1.3}.kd b{width:100%;border-bottom:.5px solid #999;font-size:7pt}
 .kd i{width:10%;font-style:normal}.kd u{text-decoration:none;font-weight:800;margin-left:1px}
+.kzr{display:flex;gap:8px;align-items:center;margin-bottom:6px}.kzr .kn1{width:24px;font-weight:700;color:var(--mut);text-align:right;font-size:13px}.kzr .kl{width:30px;height:38px;flex:none;border-radius:8px;background:var(--s2);display:grid;place-items:center;font-weight:800}
+details summary{cursor:pointer;font-weight:600;margin-top:12px}.mu{color:var(--mut);font-size:12.5px}
 [hidden]{display:none!important}
 @page{size:A4;margin:8mm}
 @media print{:root{--ink:#000!important;--mut:#444!important;--line:#bbb!important;--surf:#fff!important;--s2:#eee!important;--bg:#fff!important;--ok:#15803d!important;--bad:#b91c1c!important}
@@ -86,9 +88,12 @@ const $=s=>document.querySelector(s),E=x=>String(x).replace(/[&<>"']/g,c=>"&#"+c
 // Geometri: 4 köşe karesi merkezi = (0,0)-(800,1160). [ders, soru, A şıkkı x, 1. soru y, satır aralığı]
 const B=[["Türkçe",20,48.8,744.5,20.32],["İnkılap Tarihi",10,168.5,744.5,20.33],["Din Kültürü",10,289.3,744.5,20.33],["Yabancı Dil",10,409.8,744.5,20.33],["Matematik",20,589.7,741.5,20.47],["Fen Bilimleri",20,710.1,741.5,20.47]];
 const AL="ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ",CL="0123456789ABCDEFG",T=["Oku","Öğrenciler","Anahtar","Raporlar"];
-let loopT=null,armed=true,hold=0,miss=0,lastK=null,busy=false;let S={keys:{},st:[]},tab=0,edit=null,kt="A",so="0",stream=null,IMGM={},PEND={},AS=null,selKey="all",zoom=false,kbOnly=false,kv="A";const YM=752.3;
+let kzd=0;let loopT=null,armed=true,hold=0,miss=0,lastK=null,busy=false;let S={keys:{},st:[]},tab=0,edit=null,kt="A",so="0",stream=null,IMGM={},PEND={},AS=null,selKey="all",zoom=false,kbOnly=false,kv="A";const YM=752.3;
 try{Object.assign(S,JSON.parse(localStorage.getItem("omr2")||"{}"))}catch(e){}
 ["A","B","C","D"].forEach(k=>S.keys[k]=S.keys[k]||[]);
+S.kz=S.kz||{};["A","B","C","D"].forEach(k=>S.kz[k]=S.kz[k]||[]);
+S.cfg=Object.assign({puan:false,k:[4.34,1.66,1.89,1.5,4.25,4.12],taban:200,tavan:500},S.cfg||{});
+S.exam=Object.assign({ad:"",tarih:new Date().toISOString().slice(0,10)},S.exam||{});
 const msg=(t,e)=>{$("#msg").textContent=t;$("#msg").className=e?"err":""};
 let DB=null,BASE="",snap={},kSnap="",ft=null,mode="yerel";
 const sv=()=>{const e=$("#sv");if(e)e.textContent=(mode=="hesap"?"Kayıt: hesabında saklanıyor, sayfayı yenilesen de kalır.":mode=="yerel"?"Kayıt: yalnızca bu tarayıcıda.":"Kayıt yapılamıyor. Excel veya TXT ile yedek al.")+(AS||!S.st.length?"":" Kâğıt görüntüleri bu oturumla sınırlı.")};
@@ -97,14 +102,14 @@ function save(){if(!DB)mode=local()?"yerel":"yok";else local();sv();if(DB){clear
 async function flush(){if(!DB)return;const col=DB.collection(BASE);try{await upImgs();const T0=[];
   for(const s of S.st){const j=JSON.stringify(s);if(snap[s.id]!==j)T0.push(async()=>{await col.doc("s_"+s.id).set(s);snap[s.id]=j})}
   const ids=new Set(S.st.map(s=>s.id));for(const i in snap)if(!ids.has(i))T0.push(async()=>{await col.doc("s_"+i).delete();delete snap[i]});
-  const kj=JSON.stringify(S.keys);if(kj!=kSnap)T0.push(async()=>{await col.doc("keys").set({k:kj});kSnap=kj});
+  const kj=JSON.stringify(S.keys),mj=JSON.stringify({z:S.kz,c:S.cfg,e:S.exam}),k2=kj+mj;if(k2!=kSnap)T0.push(async()=>{await col.doc("keys").set({k:kj,m:mj});kSnap=k2});
   for(let i=0;i<T0.length;i+=8)await Promise.all(T0.slice(i,i+8).map(f=>f()));mode="hesap"}
   catch(e){mode=local()?"yerel":"yok";msg("Hesaba kaydedilemedi; bu tarayıcıda tutuluyor. Excel veya TXT ile yedek al.",1)}sv()}
 async function initDB(){sv();try{const cl=window.claude;if(!cl)return;
   const u=await cl.use("user"),db=await cl.use("db"),id=u?await u.id():null;if(!db||!id)return;try{AS=await cl.use("assets")}catch(e){}
   DB=db;BASE="data/users/"+id;const sn=await DB.collection(BASE).get(),have=new Set(S.st.map(s=>s.id));
   sn.docs.forEach(d=>{const x=d.data();if(!x)return;
-    if(d.id=="keys"){try{const k=JSON.parse(x.k);L.split("").forEach(b=>{if((k[b]||[]).some(v=>v))S.keys[b]=k[b]});kSnap=x.k}catch(e){}}
+    if(d.id=="keys"){try{const k=JSON.parse(x.k);L.split("").forEach(b=>{if((k[b]||[]).some(v=>v))S.keys[b]=k[b]});kSnap=x.k+(x.m||"");if(x.m){const m=JSON.parse(x.m);if(m.z)L.split("").forEach(b=>{if(m.z[b])S.kz[b]=m.z[b]});if(m.c)Object.assign(S.cfg,m.c);if(m.e)Object.assign(S.exam,m.e)}}catch(e){}}
     else if(d.id.startsWith("s_")){snap[x.id]=JSON.stringify(x);if(!have.has(x.id))S.st.push(x)}});
   S.st.sort((a,b)=>(a.t||0)-(b.t||0));mode="hesap";local();nav();sv();({0:cnt,1:ls,2:vKey,3:vRep})[tab]();flush()}catch(e){sv()}}
 async function dl(name,data){try{const c=window.claude?await window.claude.use("downloads"):null;if(c){await c.save({filename:name,data});return}}catch(e){if(e&&e.code=="declined")return}
@@ -116,12 +121,12 @@ function score(s){const ks=S.keys[s.kit]||[],T0={d:0,y:0,b:0,net:0};
     for(let q=0;q<b[1];q++){const a=s.a[i][q]||"-",kc=/[ABCD]/.test(k[q]||"")?k[q]:"",t=(a=="-"||a=="*")?"B":!kc?"?":a==kc?"D":"Y";
       o.st.push(t);if(t=="D"){o.d++;o.dn.push(q+1)}else if(t=="Y")o.y++;else if(t=="B")o.b++}
     o.net=+(o.d-o.y/3).toFixed(2);T0.d+=o.d;T0.y+=o.y;T0.b+=o.b;T0.net+=o.net;return o});
-  T0.net=+T0.net.toFixed(2);return{r,...T0}}
+  T0.net=+T0.net.toFixed(2);T0.puan=+Math.min(S.cfg.tavan,S.cfg.taban+r.reduce((t,x,i)=>t+(x.d-x.y/3)*S.cfg.k[i],0)).toFixed(3);return{r,...T0}}
 const flag=s=>/[?*]/.test(s.ad+s.no+s.sinif+s.kit)||s.no.length<4||s.kit=="-"||s.a.some(x=>x.includes("*"))||S.st.filter(x=>x.no==s.no).length>1;
-function rows(){const a=S.st.map((s,i)=>({s,i,sc:score(s)})),g={};a.forEach(x=>(g[x.s.sinif]=g[x.s.sinif]||[]).push(x));a.forEach(x=>x.cr=1+g[x.s.sinif].filter(y=>y.sc.net>x.sc.net).length);
+const V=x=>S.cfg.puan?x.sc.puan:x.sc.net;
+function rows(){const a=S.st.map((s,i)=>({s,i,sc:score(s)})),g={};a.forEach(x=>(g[x.s.sinif]=g[x.s.sinif]||[]).push(x));a.forEach(x=>x.cr=1+g[x.s.sinif].filter(y=>V(y)>V(x)).length);
   const cl=(x,y)=>x.s.sinif.localeCompare(y.s.sinif,"tr",{numeric:true});
-  return a.sort([(x,y)=>x.i-y.i,(x,y)=>x.s.ad.localeCompare(y.s.ad,"tr"),(x,y)=>x.s.no.localeCompare(y.s.no),(x,y)=>y.sc.net-x.sc.net,(x,y)=>cl(x,y)||y.sc.net-x.sc.net,(x,y)=>cl(x,y)||x.s.ad.localeCompare(y.s.ad,"tr")][+so])}
-
+  return a.sort([(x,y)=>x.i-y.i,(x,y)=>x.s.ad.localeCompare(y.s.ad,"tr"),(x,y)=>x.s.no.localeCompare(y.s.no),(x,y)=>y.sc.net-x.sc.net,(x,y)=>cl(x,y)||y.sc.net-x.sc.net,(x,y)=>cl(x,y)||x.s.ad.localeCompare(y.s.ad,"tr"),(x,y)=>y.sc.puan-x.sc.puan,(x,y)=>cl(x,y)||y.sc.puan-x.sc.puan][+so])}
 
 // ---------- Görüntü işleme ----------
 const GEO={kit:{nc:4,nr:1,by:1,pos:c=>[31.1+c*20,96]},
@@ -317,63 +322,95 @@ const shown=s=>{const q=($("#q").value||"").toLocaleLowerCase("tr");return(s.ad+
 function vStud(){$("#v").innerHTML=`<div class="card" id="kb"></div><div class="tb"><input id="q" placeholder="Ara: ad, numara veya sınıf"><label class="chk"><input type="checkbox" id="ob">Kontrol gerekenler</label></div><div id="ls"></div>`;$("#q").oninput=ls;$("#ob").onchange=ls;ls()}
 function ls(){const n=S.st.filter(isKB).length,ini=s=>(s.ad||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("");
   $("#kb").hidden=!n;$("#kb").innerHTML=n?`<b>${n} öğrencinin kitapçığı boş</b><div class="row"><button data-kf="1">${kbOnly?"Hepsini göster":"Sadece bunları göster"}</button><select id="kv" style="width:auto">${L.split("").map(x=>`<option${x==kv?" selected":""}>${x}</option>`).join("")}</select><button class="pri" data-ka="1">Gösterilenleri bu kitapçık yap</button></div>`:"";
-  $("#ls").innerHTML=S.st.filter(shown).map(s=>{const f=flag(s);return `<div class="card${f?" fl":""}"><div class="sh"><span class="av">${E(ini(s))}</span><div class="who"><b>${E(s.ad||"(ad yok)")}</b><small>${E(s.no||"no yok")} · ${E(s.sinif||"sınıf yok")} · Kit.${s.kit}${f?'<em class="chip">Kontrol et</em>':""}</small></div><span class="net">${score(s).net}</span><div class="acts"><button data-e="${s.id}">${edit==s.id?"Kapat":"Düzelt"}</button><button class="dng" data-x="${s.id}">Sil</button></div></div>${edit==s.id?editor(s):""}</div>`}).join("")||`<p class="leg">Gösterilecek kayıt yok.</p>`;
+  $("#ls").innerHTML=S.st.filter(shown).map(s=>{const f=flag(s);return `<div class="card${f?" fl":""}"><div class="sh"><span class="av">${E(ini(s))}</span><div class="who"><b>${E(s.ad||"(ad yok)")}</b><small>${E(s.no||"no yok")} · ${E(s.sinif||"sınıf yok")} · Kit.${s.kit}${f?'<em class="chip">Kontrol et</em>':""}</small></div><span class="net">${score(s).net}${S.cfg.puan?`<small style="display:block;font-size:11px;font-weight:600;color:var(--mut)">${score(s).puan.toFixed(1)} p</small>`:""}</span><div class="acts"><button data-e="${s.id}">${edit==s.id?"Kapat":"Düzelt"}</button><button class="dng" data-x="${s.id}">Sil</button></div></div>${edit==s.id?editor(s):""}</div>`}).join("")||`<p class="leg">Gösterilecek kayıt yok.</p>`;
   const e=S.st.find(x=>x.id==edit);if(e)paint(e)}
 function vKey(){const k=S.keys[kt];$("#v").innerHTML=`<div class="card"><div class="seg">${L.split("").map(x=>`<button class="${x==kt?"on":""}" data-bk="${x}">Kitapçık ${x}</button>`).join("")}</div>
 <div class="keys">${B.map((b,i)=>`<label>${b[0]} <small>${(k[i]||"").length}/${b[1]}</small><input data-ki="${i}" maxlength="${b[1]}" autocomplete="off" spellcheck="false" value="${k[i]||""}" placeholder="${"ABCD".repeat(5).slice(0,b[1])}"></label>`).join("")}</div>
-<div class="row"><button id="cp">Bu anahtarı tüm kitapçıklara kopyala</button><label class="btn">Excel'den içe aktar<input type="file" accept=".xlsx,.xls,.csv" id="ki" hidden></label><button id="ke">Anahtarı Excel'e aktar (şablon)</button></div><p class="leg">Her ders için doğru cevapları sırayla yaz. Öğrencinin kitapçık türüne göre ilgili anahtar kullanılır. Anahtar bir kez girilince silinene kadar kalır. Excel dosyasında Ders, Soru, A, B, C, D sütunları olmalı; en kolayı şablonu indirip doldurmaktır.</p></div>`}
-function vRep(){const a=rows(),o=["Okuma sırası","Ad Soyad","Öğrenci no","Net (çoktan aza)","Sınıf, sonra net","Sınıf, sonra ad"],
-  avg=a.length?(a.reduce((t,x)=>t+x.sc.net,0)/a.length).toFixed(2):"-",T=(id,t,d)=>`<button class="tile" id="${id}"><b>${t}</b><span>${d}</span></button>`;
-  $("#v").innerHTML=`<div class="card np"><div class="stats"><div><b>${a.length}</b><span>kâğıt</span></div><div><b>${new Set(a.map(x=>x.s.sinif)).size}</b><span>sınıf</span></div><div><b>${avg}</b><span>ortalama net</span></div></div>
+<div class="row"><button id="cp">Bu anahtarı tüm kitapçıklara kopyala</button><label class="btn">Excel'den içe aktar<input type="file" accept=".xlsx,.xls,.csv" id="ki" hidden></label><button id="ke">Anahtarı Excel'e aktar (şablon)</button></div><p class="leg">Her ders için doğru cevapları sırayla yaz. Öğrencinin kitapçık türüne göre ilgili anahtar kullanılır. Anahtar bir kez girilince silinene kadar kalır. Excel dosyasında Ders, Soru, A, B, C, D sütunları olmalı; en kolayı şablonu indirip doldurmaktır. Kazanım sütunları (Kazanım A, B, C, D veya tek "Kazanım") isteğe bağlıdır.</p></div>`+kzCard()}
+function vRep(){const a=rows(),P=S.cfg.puan,o=["Okuma sırası","Ad Soyad","Öğrenci no","Net (çoktan aza)","Sınıf, sonra net","Sınıf, sonra ad","LGS puanı (çoktan aza)","Sınıf, sonra puan"],
+  avg=a.length?(a.reduce((t,x)=>t+(P?x.sc.puan:x.sc.net),0)/a.length).toFixed(P?3:2):"-",T=(id,t,d)=>`<button class="tile" id="${id}"><b>${t}</b><span>${d}</span></button>`;
+  $("#v").innerHTML=`<div class="card np"><div class="stats"><div><b>${a.length}</b><span>kâğıt</span></div><div><b>${new Set(a.map(x=>x.s.sinif)).size}</b><span>sınıf</span></div><div><b>${avg}</b><span>ortalama ${P?"puan":"net"}</span></div></div>
 <label class="lab">Sıralama<select id="so">${o.map((t,i)=>`<option value="${i}"${i==+so?" selected":""}>${t}</option>`).join("")}</select></label></div>
+<div class="card np"><h2>Deneme ve puan</h2><div class="ed" style="margin-top:0"><label>Deneme adı<input data-ex="ad" value="${E(S.exam.ad)}" placeholder="Örn. LGS Deneme 3" autocomplete="off"></label><label>Tarih<input type="date" data-ex="tarih" value="${E(S.exam.tarih)}"></label></div>
+<label class="chk" style="margin-top:12px"><input type="checkbox" id="pz"${P?" checked":""}>LGS puanı hesaplansın (tahmini)</label>
+<details><summary>Katsayıları düzenle</summary><div class="ed">${B.map((b,i)=>`<label>${b[0]} katsayısı<input type="number" step="0.01" inputmode="decimal" data-kc="${i}" value="${S.cfg.k[i]}"></label>`).join("")}<label>Taban puan<input type="number" inputmode="decimal" data-kb="taban" value="${S.cfg.taban}"></label><label>En yüksek puan<input type="number" inputmode="decimal" data-kb="tavan" value="${S.cfg.tavan}"></label></div></details>
+<p class="leg">Tahmini puan = taban puan + her dersin neti × katsayısı. Açıkken karne, listeler ve Excel'de puan görünür, sıra numaraları puana göre verilir.</p></div>
 <div class="card np"><h2>Çıktılar</h2><div class="tiles">${T("xl","Excel","Toplu sonuç, sınıf özeti, doğru sorular, detay")}${T("tx","TXT","Yan yana okunan değerler")}${T("kh","Tüm karneler","Seçili sıralamayla, HTML")}${T("kc","Karneler, sınıf sıralı","Önce sınıf, sonra ad sırası")}${T("lc","Sınıf listesi","Her sınıf ayrı sayfa; sınıf sırası ve ortalama")}</div>
 <label class="chk" style="margin-top:10px"><input type="checkbox" id="dash">TXT'de boş cevapları - ile yaz</label></div>
+<div class="card np"><h2>Analiz için dışa aktar</h2><div class="tiles">${T("aj","Analiz dosyası (JSON)","Tek dosyada anahtar, kazanımlar ve tüm öğrenciler")}${T("ac","Analiz dosyası (CSV)","Soru bazlı satırlar: öğrenci, soru, işaret, sonuç, kazanım")}</div><p class="leg">Her denemeyi ayrı dosya olarak kaydet. Dosya adı deneme adı ve tarihten oluşur.</p></div>
 <div class="card np"><h2>Cevap anahtarı çıktısı</h2><p class="leg" style="margin:0 0 10px">Bir A4 sayfada 12 adet. Kesip dağıtmak için.</p><div class="row" style="margin:0"><select id="kk" style="flex:1;min-width:140px"><option value="A">Kitapçık A</option><option value="B">Kitapçık B</option><option value="C">Kitapçık C</option><option value="D">Kitapçık D</option><option value="all">Hepsi (her biri ayrı sayfa)</option></select><button id="kv1">Önizle</button><button id="kp1" class="pri">Yazdır</button><button id="kd1">HTML indir</button></div></div>
-<div class="card np"><h2>Toplu sonuç listesi</h2><div class="wrap"><table><thead><tr><th>#</th><th class="l">Ad Soyad</th><th>No</th><th>Sınıf</th><th>Kit</th>${B.map(b=>`<th>${b[0].slice(0,4)}</th>`).join("")}<th>D</th><th>Y</th><th>B</th><th>Net</th><th>S.Sıra</th><th></th></tr></thead><tbody>`+
-  a.map(({s,sc,cr},n)=>`<tr><td>${n+1}</td><td class="l">${E(s.ad||"(ad yok)")}</td><td>${E(s.no)}</td><td>${E(s.sinif)}</td><td>${s.kit}</td>${sc.r.map(r=>`<td>${r.net}</td>`).join("")}<td class="ok">${sc.d}</td><td>${sc.y}</td><td>${sc.b}</td><td><b>${sc.net}</b></td><td>${cr}</td><td><button data-kr="${s.id}" style="min-height:32px;padding:0 10px;font-size:12px">Karne</button></td></tr>`).join("")+
-  `</tbody></table></div><p class="leg">Ders sütunları net değerleridir (3 yanlış 1 doğruyu götürür). D doğru, Y yanlış, B boş, S.Sıra sınıf sırası.</p></div><div id="kr"></div><div class="card np"><button class="dng" data-x="all">Tüm kayıtları sil</button></div>`}
-function karne(x,a){const{s,sc}=x,n=a.length,cl=a.filter(y=>y.s.sinif==s.sinif),rk=l=>1+l.filter(y=>y.sc.net>sc.net).length,ks=S.keys[s.kit]||[];
+<div class="card np"><h2>Toplu sonuç listesi</h2><div class="wrap"><table><thead><tr><th>#</th><th class="l">Ad Soyad</th><th>No</th><th>Sınıf</th><th>Kit</th>${B.map(b=>`<th>${b[0].slice(0,4)}</th>`).join("")}<th>D</th><th>Y</th><th>B</th><th>Net</th>${P?"<th>Puan</th>":""}<th>S.Sıra</th><th></th></tr></thead><tbody>`+
+  a.map(({s,sc,cr},n)=>`<tr><td>${n+1}</td><td class="l">${E(s.ad||"(ad yok)")}</td><td>${E(s.no)}</td><td>${E(s.sinif)}</td><td>${s.kit}</td>${sc.r.map(r=>`<td>${r.net}</td>`).join("")}<td class="ok">${sc.d}</td><td>${sc.y}</td><td>${sc.b}</td><td><b>${sc.net}</b></td>${P?`<td><b>${sc.puan.toFixed(3)}</b></td>`:""}<td>${cr}</td><td><button data-kr="${s.id}" style="min-height:32px;padding:0 10px;font-size:12px">Karne</button></td></tr>`).join("")+
+  `</tbody></table></div><p class="leg">Ders sütunları net değerleridir (3 yanlış 1 doğruyu götürür). D doğru, Y yanlış, B boş, S.Sıra sınıf sırası${P?" (puana göre)":""}.</p></div><div id="kr"></div><div class="card np"><button class="dng" data-x="all">Tüm kayıtları sil</button></div>`}
+function karne(x,a){const{s,sc}=x,n=a.length,cl=a.filter(y=>y.s.sinif==s.sinif),rk=l=>1+l.filter(y=>V(y)>V(x)).length,ks=S.keys[s.kit]||[];
   return `<div class="kn"><h3>${E(s.ad||"(ad yok)")}</h3><p>Öğrenci no: <b>${E(s.no)}</b> &nbsp; Sınıf: <b>${E(s.sinif)}</b> &nbsp; Kitapçık: <b>${s.kit}</b></p>
 <table><tr><th>Ders</th><th>Doğru</th><th>Yanlış</th><th>Boş</th><th>Net</th><th>Genel ort. net</th></tr>`+
   B.map((b,i)=>`<tr><td>${b[0]}</td><td class="ok">${sc.r[i].d}</td><td>${sc.r[i].y}</td><td>${sc.r[i].b}</td><td>${sc.r[i].net}</td><td>${(a.reduce((t,y)=>t+y.sc.r[i].net,0)/n).toFixed(2)}</td></tr>`).join("")+
   `<tr class="tot"><td>Toplam</td><td class="ok">${sc.d}</td><td>${sc.y}</td><td>${sc.b}</td><td>${sc.net}</td><td>${(a.reduce((t,y)=>t+y.sc.net,0)/n).toFixed(2)}</td></tr></table>
-<p>Genel sıra: <b>${rk(a)}/${n}</b> &nbsp; Sınıf sırası: <b>${rk(cl)}/${cl.length}</b></p>`+
+<p>Genel sıra: <b>${rk(a)}/${n}</b> &nbsp; Sınıf sırası: <b>${rk(cl)}/${cl.length}</b></p>${S.cfg.puan?`<p>Tahmini LGS puanı: <b>${sc.puan.toFixed(3)}</b> <span class="mu">(genel ort. ${(a.reduce((t,y)=>t+y.sc.puan,0)/n).toFixed(3)})</span></p><p class="mu">Puan tahminidir: ${S.cfg.taban} + her dersin neti × katsayı. Resmî LGS puanı farklı hesaplanır.</p>`:""}`+
   B.map((b,i)=>`<div class="qs"><b>${b[0]}</b> ${[...s.a[i]].map((c,q)=>`<span class="q ${sc.r[i].st[q]}">${q+1}:${c=="-"?"·":c}${sc.r[i].st[q]=="Y"?"→"+ks[i][q]:""}</span>`).join("")}</div>`).join("")+`</div>`}
 const doc=p=>"<!doctype html><html lang=\"tr\"><meta charset=\"utf-8\"><title>Karne</title><style>"+document.querySelector("style").textContent+"</style><body><main>"+p.join("")+"</main>";
 function excel(){const a=rows(),H1=["Sıra","Ad Soyad","Öğrenci No","Sınıf","Kitapçık"];
-  B.forEach(b=>H1.push(b[0]+" Doğru",b[0]+" Yanlış",b[0]+" Boş",b[0]+" Net"));H1.push("Toplam Doğru","Toplam Yanlış","Toplam Boş","Toplam Net","Sınıf Sırası");
-  const R1=[H1],R2=[["Ad Soyad","Öğrenci No",...B.map(b=>b[0]+" doğru soru no")]],R3=[["Öğrenci No","Ad Soyad","Ders","Soru","Anahtar","İşaret","Sonuç"]],tn={D:"Doğru",Y:"Yanlış",B:"Boş","?":"Anahtar yok"};
-  a.forEach(({s,sc,cr},n)=>{R1.push([n+1,s.ad,s.no,s.sinif,s.kit,...sc.r.flatMap(r=>[r.d,r.y,r.b,r.net]),sc.d,sc.y,sc.b,sc.net,cr]);R2.push([s.ad,s.no,...sc.r.map(r=>r.dn.join(", "))]);
-    B.forEach((b,i)=>[...s.a[i]].forEach((c,q)=>R3.push([s.no,s.ad,b[0],q+1,((S.keys[s.kit]||[])[i]||"")[q]||"",c=="-"?"":c=="*"?"çift":c,tn[sc.r[i].st[q]]])))});
+  B.forEach(b=>H1.push(b[0]+" Doğru",b[0]+" Yanlış",b[0]+" Boş",b[0]+" Net"));H1.push("Toplam Doğru","Toplam Yanlış","Toplam Boş","Toplam Net",...(S.cfg.puan?["Tahmini LGS Puanı"]:[]),"Sınıf Sırası");
+  const R1=[H1],R2=[["Ad Soyad","Öğrenci No",...B.map(b=>b[0]+" doğru soru no")]],R3=[["Öğrenci No","Ad Soyad","Ders","Soru","Anahtar","İşaret","Sonuç","Kazanım"]],tn={D:"Doğru",Y:"Yanlış",B:"Boş","?":"Anahtar yok"};
+  a.forEach(({s,sc,cr},n)=>{R1.push([n+1,s.ad,s.no,s.sinif,s.kit,...sc.r.flatMap(r=>[r.d,r.y,r.b,r.net]),sc.d,sc.y,sc.b,sc.net,...(S.cfg.puan?[sc.puan]:[]),cr]);R2.push([s.ad,s.no,...sc.r.map(r=>r.dn.join(", "))]);
+    B.forEach((b,i)=>[...s.a[i]].forEach((c,q)=>R3.push([s.no,s.ad,b[0],q+1,((S.keys[s.kit]||[])[i]||"")[q]||"",c=="-"?"":c=="*"?"çift":c,tn[sc.r[i].st[q]],((S.kz[s.kit]||[])[i]||[])[q]||""])))});
   const gr={};a.forEach(x=>(gr[x.s.sinif]=gr[x.s.sinif]||[]).push(x));
-  const R4=[["Sınıf","Öğrenci sayısı",...B.map(b=>b[0]+" ort. net"),"Ort. Doğru","Ort. Yanlış","Ort. Boş","Ort. Net"]];
-  Object.keys(gr).sort((p,q)=>p.localeCompare(q,"tr",{numeric:true})).forEach(c=>{const l=gr[c],av=f=>+(l.reduce((t,x)=>t+f(x),0)/l.length).toFixed(2);R4.push([c,l.length,...B.map((b,i)=>av(x=>x.sc.r[i].net)),av(x=>x.sc.d),av(x=>x.sc.y),av(x=>x.sc.b),av(x=>x.sc.net)])});
+  const R4=[["Sınıf","Öğrenci sayısı",...B.map(b=>b[0]+" ort. net"),"Ort. Doğru","Ort. Yanlış","Ort. Boş","Ort. Net",...(S.cfg.puan?["Ort. Puan"]:[])]];
+  Object.keys(gr).sort((p,q)=>p.localeCompare(q,"tr",{numeric:true})).forEach(c=>{const l=gr[c],av=f=>+(l.reduce((t,x)=>t+f(x),0)/l.length).toFixed(2);R4.push([c,l.length,...B.map((b,i)=>av(x=>x.sc.r[i].net)),av(x=>x.sc.d),av(x=>x.sc.y),av(x=>x.sc.b),av(x=>x.sc.net),...(S.cfg.puan?[+(l.reduce((t,x)=>t+x.sc.puan,0)/l.length).toFixed(3)]:[])])});
   const wb=XLSX.utils.book_new();[["Toplu Sonuç",R1],["Sınıf Özeti",R4],["Doğru Sorular",R2],["Detay",R3]].forEach(([n,r])=>{const w=XLSX.utils.aoa_to_sheet(r);w["!cols"]=r[0].map((_,i)=>({wch:i==1?24:14}));XLSX.utils.book_append_sheet(wb,w,n)});
   dl("optik-sonuclar.xlsx",XLSX.write(wb,{bookType:"xlsx",type:"array"}))}
 
+function kzCard(){const b=B[kzd],z=S.kz[kt][kzd]||[],k=S.keys[kt][kzd]||"";
+  return `<div class="card"><h2>Kazanımlar, kitapçık ${kt}</h2><div class="seg" style="flex-wrap:wrap">${B.map((x,i)=>`<button class="${i==kzd?"on":""}" data-kzd="${i}" style="min-width:90px">${x[0]}</button>`).join("")}</div>
+${Array.from({length:b[1]},(_,q)=>`<div class="kzr"><span class="kn1">${q+1}</span><span class="kl">${/[ABCD]/.test(k[q]||"")?k[q]:"·"}</span><input data-kzq="${q}" value="${E(z[q]||"")}" placeholder="Kazanım kodu veya adı" autocomplete="off"></div>`).join("")}
+<div class="row"><button id="kzc">Bu kitapçığın kazanımlarını diğerlerine kopyala</button></div><p class="leg">Her soru için kazanım yaz. Analiz dosyasına soru bazında eklenir. Soru sırası kitapçıklarda aynıysa kopyalama işe yarar.</p></div>`}
 const nz=c=>String(c).replace(/ı/g,"i").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const DR=[/^(TURK|EDEB)/,/^(INKILAP|SOSYAL|TARIH|TCINK)/,/^DIN/,/^(YABANCI|ING|ALM|FRA)/,/^MAT/,/^FEN/];
-function keyXl(){const R=[["Ders","Soru","A","B","C","D"]];B.forEach((b,i)=>{for(let q=0;q<b[1];q++)R.push([b[0],q+1,...L.split("").map(k=>(S.keys[k][i]||"")[q]||"")])});
-  const wb=XLSX.utils.book_new(),w=XLSX.utils.aoa_to_sheet(R);w["!cols"]=[{wch:16},{wch:7},{wch:6},{wch:6},{wch:6},{wch:6}];XLSX.utils.book_append_sheet(wb,w,"Anahtar");
+function keyXl(){const R=[["Ders","Soru","A","B","C","D","Kazanım A","Kazanım B","Kazanım C","Kazanım D"]];
+  B.forEach((b,i)=>{for(let q=0;q<b[1];q++)R.push([b[0],q+1,...L.split("").map(k=>(S.keys[k][i]||"")[q]||""),...L.split("").map(k=>(S.kz[k][i]||[])[q]||"")])});
+  const wb=XLSX.utils.book_new(),w=XLSX.utils.aoa_to_sheet(R);w["!cols"]=[{wch:16},{wch:7},{wch:5},{wch:5},{wch:5},{wch:5},{wch:32},{wch:32},{wch:32},{wch:32}];XLSX.utils.book_append_sheet(wb,w,"Anahtar");
   dl("cevap-anahtari.xlsx",XLSX.write(wb,{bookType:"xlsx",type:"array"}))}
 async function impKey(f){if(!f)return;try{
-  const wb=XLSX.read(await f.arrayBuffer(),{type:"array"}),tmp={};let n=0;
+  const wb=XLSX.read(await f.arrayBuffer(),{type:"array"}),tmp={},tz={};let n=0,m=0;
   for(const nm of wb.SheetNames){const R=XLSX.utils.sheet_to_json(wb.Sheets[nm],{header:1,defval:""}),hi=R.findIndex(r=>r.some(c=>nz(c)=="DERS"));if(hi<0)continue;
-    const Hd=R[hi].map(nz),ci=Hd.indexOf("DERS"),qi=Hd.findIndex(x=>x=="SORU"||x=="SORUNO"),bc={};
-    L.split("").forEach(k=>{const j=Hd.findIndex(x=>x==k||x=="KITAPCIK"+k);if(j>=0)bc[k]=j});
+    const Hd=R[hi].map(nz),ci=Hd.indexOf("DERS"),qi=Hd.findIndex(x=>x=="SORU"||x=="SORUNO"),bc={},zc={};
+    L.split("").forEach(k=>{const j=Hd.findIndex(x=>x==k||x=="KITAPCIK"+k);if(j>=0)bc[k]=j;const z=Hd.findIndex(x=>x=="KAZANIM"+k||x=="KAZANIMKITAPCIK"+k);if(z>=0)zc[k]=z});
+    const zj=Hd.indexOf("KAZANIM");if(zj>=0)L.split("").forEach(k=>{if(zc[k]===undefined)zc[k]=zj});
     if(!Object.keys(bc).length){const j=Hd.findIndex(x=>x=="CEVAP"||x=="ANAHTAR"||x=="DOGRU");if(j>=0)L.split("").forEach(k=>bc[k]=j)}
     for(const r of R.slice(hi+1)){const v=nz(r[ci]),di=DR.findIndex(x=>x.test(v));if(di<0)continue;const q=qi>=0?parseInt(r[qi]):NaN;
       for(const k in bc){const c=String(r[bc[k]]).toUpperCase().replace(/[^ABCD]/g,"");if(!c)continue;
-        const a=((tmp[k]=tmp[k]||{})[di]=tmp[k][di]||[]);if(c.length>1)c.split("").forEach((x,i)=>a[i]=x);else if(q>=1)a[q-1]=c;n++}}}
-  if(!n){msg("Excel'de anahtar bulunamadı. Ders ve Soru başlıklı, A, B, C, D kitapçık sütunlu şablonu kullan.",1);return}
+        const a=((tmp[k]=tmp[k]||{})[di]=tmp[k][di]||[]);if(c.length>1)c.split("").forEach((x,i)=>a[i]=x);else if(q>=1)a[q-1]=c;n++}
+      for(const k in zc){const t=String(r[zc[k]]).trim();if(!t||!(q>=1))continue;((tz[k]=tz[k]||{})[di]=tz[k][di]||[])[q-1]=t;m++}}}
+  if(!n&&!m){msg("Excel'de anahtar bulunamadı. Ders ve Soru başlıklı, A, B, C, D kitapçık sütunlu şablonu kullan.",1);return}
   for(const k in tmp)for(const di in tmp[k]){const a=tmp[k][di];S.keys[k][di]=Array.from({length:Math.min(a.length,B[di][1])},(_,i)=>a[i]||"-").join("")}
-  save();vKey();msg("Anahtar içe aktarıldı (kitapçık "+Object.keys(tmp).join(", ")+").")}catch(e){msg("Excel okunamadı. .xlsx, .xls veya .csv dosyası seç.",1)}}
-function byClass(m){return rows().sort((x,y)=>x.s.sinif.localeCompare(y.s.sinif,"tr",{numeric:true})||(m?x.s.ad.localeCompare(y.s.ad,"tr"):y.sc.net-x.sc.net))}
-function listeHTML(){const a=byClass(0),gr={};a.forEach(x=>(gr[x.s.sinif]=gr[x.s.sinif]||[]).push(x));
-  return Object.keys(gr).map(c=>{const l=gr[c],av=f=>(l.reduce((t,x)=>t+f(x),0)/l.length).toFixed(2);
-    return `<section class="kn"><h3>Sınıf ${E(c||"(sınıf yok)")} sonuç listesi</h3><p>${l.length} öğrenci, sınıf ortalaması ${av(x=>x.sc.net)} net</p><table><tr><th>Sıra</th><th class="l">Ad Soyad</th><th>No</th><th>Kit</th>${B.map(b=>`<th>${E(b[0].slice(0,4))}</th>`).join("")}<th>D</th><th>Y</th><th>B</th><th>Net</th></tr>`+
-    l.map(x=>`<tr><td>${x.cr}</td><td class="l">${E(x.s.ad||"(ad yok)")}</td><td>${E(x.s.no)}</td><td>${x.s.kit}</td>${x.sc.r.map(r=>`<td>${r.net}</td>`).join("")}<td class="ok">${x.sc.d}</td><td>${x.sc.y}</td><td>${x.sc.b}</td><td><b>${x.sc.net}</b></td></tr>`).join("")+
-    `<tr class="tot"><td></td><td class="l">Ortalama</td><td></td><td></td>${B.map((b,i)=>`<td>${av(y=>y.sc.r[i].net)}</td>`).join("")}<td>${av(y=>y.sc.d)}</td><td>${av(y=>y.sc.y)}</td><td>${av(y=>y.sc.b)}</td><td>${av(y=>y.sc.net)}</td></tr></table></section>`}).join("")}
+  for(const k in tz)for(const di in tz[k]){const a=tz[k][di];S.kz[k][di]=Array.from({length:B[di][1]},(_,i)=>a[i]||"")}
+  save();vKey();msg("Anahtar içe aktarıldı"+(n?" (cevaplar: kitapçık "+Object.keys(tmp).join(", ")+")":"")+(m?"; "+m+" kazanım girişi alındı":"")+".")}catch(e){msg("Excel okunamadı. .xlsx, .xls veya .csv dosyası seç.",1)}}
+function byClass(m){return rows().sort((x,y)=>x.s.sinif.localeCompare(y.s.sinif,"tr",{numeric:true})||(m?x.s.ad.localeCompare(y.s.ad,"tr"):V(y)-V(x)))}
+function listeHTML(){const a=byClass(0),P=S.cfg.puan,gr={};a.forEach(x=>(gr[x.s.sinif]=gr[x.s.sinif]||[]).push(x));
+  return Object.keys(gr).map(c=>{const l=gr[c],av=(f,d)=>(l.reduce((t,x)=>t+f(x),0)/l.length).toFixed(d==null?2:d);
+    return `<section class="kn"><h3>Sınıf ${E(c||"(sınıf yok)")} sonuç listesi</h3><p>${l.length} öğrenci, sınıf ortalaması ${av(x=>x.sc.net)} net${P?", "+av(x=>x.sc.puan,3)+" puan (tahmini)":""}</p><table><tr><th>Sıra</th><th class="l">Ad Soyad</th><th>No</th><th>Kit</th>${B.map(b=>`<th>${E(b[0].slice(0,4))}</th>`).join("")}<th>D</th><th>Y</th><th>B</th><th>Net</th>${P?"<th>Puan</th>":""}</tr>`+
+    l.map(x=>`<tr><td>${x.cr}</td><td class="l">${E(x.s.ad||"(ad yok)")}</td><td>${E(x.s.no)}</td><td>${x.s.kit}</td>${x.sc.r.map(r=>`<td>${r.net}</td>`).join("")}<td class="ok">${x.sc.d}</td><td>${x.sc.y}</td><td>${x.sc.b}</td><td><b>${x.sc.net}</b></td>${P?`<td><b>${x.sc.puan.toFixed(3)}</b></td>`:""}</tr>`).join("")+
+    `<tr class="tot"><td></td><td class="l">Ortalama</td><td></td><td></td>${B.map((b,i)=>`<td>${av(y=>y.sc.r[i].net)}</td>`).join("")}<td>${av(y=>y.sc.d)}</td><td>${av(y=>y.sc.y)}</td><td>${av(y=>y.sc.b)}</td><td>${av(y=>y.sc.net)}</td>${P?`<td>${av(y=>y.sc.puan,3)}</td>`:""}</tr></table></section>`}).join("")}
+// Analiz dosyası: deneme bilgisi + anahtar (kazanımlarla) + öğrenci cevapları ve sonuçları
+function analizData(){const a=rows(),ex=S.exam,P=S.cfg.puan,an={};
+  L.split("").forEach(k=>{if((S.keys[k]||[]).some(Boolean)||(S.kz[k]||[]).some(z=>z&&z.some(Boolean)))an[k]=B.map((b,i)=>({ders:b[0],soru:b[1],cevaplar:S.keys[k][i]||"",kazanimlar:Array.from({length:b[1]},(_,q)=>((S.kz[k]||[])[i]||[])[q]||"")}))});
+  return{format:"optik-okuyucu/1",
+    aciklama:{cevaplar:"Her ders için soru sırasıyla harfler: A-D işaret, - boş, * çift işaret",sonuc:"D doğru, Y yanlış, B boş, ? anahtar yok",net:"doğru - yanlış/3"},
+    deneme:{ad:ex.ad,tarih:ex.tarih,aktarim:new Date().toISOString(),ogrenci_sayisi:a.length},
+    dersler:B.map((b,i)=>({ad:b[0],soru:b[1],katsayi:S.cfg.k[i]})),puan:{hesaplandi:!!P,taban:S.cfg.taban,tavan:S.cfg.tavan},anahtar:an,
+    ogrenciler:a.map(({s,sc,cr})=>({no:s.no,ad:s.ad,sinif:s.sinif,kitapcik:s.kit,cevaplar:Object.fromEntries(B.map((b,i)=>[b[0],s.a[i]])),
+      sonuclar:Object.fromEntries(B.map((b,i)=>[b[0],{dogru:sc.r[i].d,yanlis:sc.r[i].y,bos:sc.r[i].b,net:sc.r[i].net,dogru_sorular:sc.r[i].dn}])),
+      toplam:{dogru:sc.d,yanlis:sc.y,bos:sc.b,net:sc.net},...(P?{puan:sc.puan}:{}),sinif_sirasi:cr}))}}
+function exportAnaliz(fmt){if(!S.st.length){msg("Kayıtlı kâğıt yok.",1);return}
+  const ex=S.exam,slug=t=>String(t||"").replace(/ı/g,"i").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-+|-+$/g,"").toLowerCase(),name=["deneme",slug(ex.ad),ex.tarih].filter(Boolean).join("-");
+  if(fmt=="json")dl(name+".json",JSON.stringify(analizData(),null,1));
+  else{const q=v=>{v=String(v==null?"":v);return/[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v},o=["deneme,tarih,ogrenci_no,ad_soyad,sinif,kitapcik,ders,soru_no,dogru_cevap,isaret,sonuc,kazanim"];
+    rows().forEach(({s,sc})=>{const ks=S.keys[s.kit]||[],zs=S.kz[s.kit]||[];B.forEach((b,i)=>[...s.a[i]].forEach((c,j)=>{const kc=(ks[i]||"")[j]||"";
+      o.push([ex.ad,ex.tarih,s.no,s.ad,s.sinif,s.kit,b[0],j+1,/[ABCD]/.test(kc)?kc:"",c=="-"?"":c,sc.r[i].st[j],(zs[i]||[])[j]||""].map(q).join(","))}))});
+    dl(name+".csv","\ufeff"+o.join("\r\n"))}
+  const kits=[...new Set(S.st.map(s=>s.kit))].filter(k=>L.includes(k)),miss=kits.reduce((t,k)=>t+B.reduce((u,b,i)=>u+Array.from({length:b[1]},(_,q)=>((S.kz[k]||[])[i]||[])[q]).filter(x=>!x).length,0),0);
+  msg("Analiz dosyası hazırlandı."+(miss?" Kazanım girilmemiş soru sayısı: "+miss+".":""),!!miss&&false)}
 const keyCard=k=>{const ks=S.keys[k]||[];return `<div class="kc"><h4><span>Cevap Anahtarı</span><span>Kitapçık ${k}</span></h4>`+B.map((b,i)=>`<div class="kd"><b>${b[0]}</b>${Array.from({length:b[1]},(_,q)=>`<i>${q+1}<u>${(ks[i]||"")[q]||"·"}</u></i>`).join("")}</div>`).join("")+`</div>`};
 function keyPages(sel){const ks=(sel=="all"?L.split(""):[sel]).filter(k=>(S.keys[k]||[]).some(Boolean));
   if(!ks.length){msg("Seçilen kitapçık için cevap anahtarı girilmemiş. Anahtar sekmesinden gir.",1);return null}
@@ -386,6 +423,8 @@ $("#v").addEventListener("click",e=>{const t=e.target.closest("button");if(!t)re
   else if(d.x){if(d.sure){rmStud(d.x=="all"?S.st.map(x=>x.id):[d.x]);edit=null;save();nav();tab==1?ls():vRep()}else{const o=t.textContent;d.sure=1;t.textContent="Emin misin? Bir daha bas";setTimeout(()=>{if(t.isConnected){t.textContent=o;delete d.sure}},3500)}}
   else if(d.bk){kt=d.bk;vKey()}
   else if(d.kr){const a=rows(),x=a.find(y=>y.s.id==d.kr);$("#kr").innerHTML=`<div class="card"><div class="row np"><button id="pr" class="pri">Yazdır</button><button id="kd" data-id="${x.s.id}">HTML olarak indir</button></div>${karne(x,a)}</div>`;$("#kr").scrollIntoView({behavior:"smooth"})}
+  else if(d.kzd!==undefined){kzd=+d.kzd;vKey()}
+  else if(t.id=="kzc"){L.split("").forEach(x=>S.kz[x]=JSON.parse(JSON.stringify(S.kz[kt])));save();msg("Kazanımlar tüm kitapçıklara kopyalandı.")}
   else if(d.z){zoom=!zoom;ls()}
   else if(d.mv){const st=S.st.find(x=>x.id==d.s),[dx,dy]=d.mv.split(",").map(Number);ks().forEach(k=>{const o=(st.al&&st.al[k])||[0,0];(st.al=st.al||{})[k]=[o[0]+dx,o[1]+dy]});save();paintOpen()}
   else if(d.rs){const st=S.st.find(x=>x.id==d.rs);ks().forEach(k=>{if(st.al)delete st.al[k]});save();paintOpen()}
@@ -400,6 +439,8 @@ $("#v").addEventListener("click",e=>{const t=e.target.closest("button");if(!t)re
   else if(t.id=="xl")excel();
   else if(t.id=="kc"){const all=rows();dl("karneler-sinif-sirali.html",doc(byClass(1).map(x=>karne(x,all))))}
   else if(t.id=="lc")dl("sinif-listesi.html",doc([listeHTML()]));
+  else if(t.id=="aj")exportAnaliz("json");
+  else if(t.id=="ac")exportAnaliz("csv");
   else if(t.id=="kd1"){const h=keyPages($("#kk").value);if(h)dl("cevap-anahtari-12li.html",doc([h]))}
   else if(t.id=="kv1"||t.id=="kp1"){const h=keyPages($("#kk").value);if(!h)return;$("#kr").innerHTML=`<div class="card"><div class="pv">${h}</div></div>`;
     const z=Math.min(1,($("#kr").clientWidth-30)/740);$("#kr").querySelectorAll(".kpg").forEach(g=>g.style.zoom=z);$("#kr").scrollIntoView({behavior:"smooth"});if(t.id=="kp1")setTimeout(()=>window.print(),300)}
@@ -407,8 +448,11 @@ $("#v").addEventListener("click",e=>{const t=e.target.closest("button");if(!t)re
     dl("okunan-degerler.txt","\ufeff"+rows().map(({s})=>[s.ad.padEnd(25),s.no.padEnd(4),s.sinif.padEnd(4),s.kit,...s.a.map(f)].join(" ")).join("\r\n"))}
   else if(t.id=="ke")keyXl();
   else if(t.id=="cp"){L.split("").forEach(x=>S.keys[x]=[...S.keys[kt]]);save();msg("Anahtar tüm kitapçıklara kopyalandı.")}});
-$("#v").addEventListener("change",e=>{const t=e.target;if(t.id=="so"){so=t.value;vRep();return}if(t.id=="ki"){impKey(t.files[0]);t.value="";return}if(t.id=="kv"){kv=t.value;return}if(t.dataset.sk){selKey=t.value;paintOpen();return}const f=t.dataset.f;if(!f)return;
+$("#v").addEventListener("change",e=>{const t=e.target;if(t.id=="so"){so=t.value;if(+so>=6&&!S.cfg.puan){S.cfg.puan=true;msg("Puan sıralaması için LGS puan hesabı açıldı.")}save();vRep();return}if(t.id=="pz"){S.cfg.puan=t.checked;save();vRep();return}if(t.dataset.kc!==undefined||t.dataset.kb!==undefined||t.dataset.ex!==undefined){vRep();return}if(t.id=="ki"){impKey(t.files[0]);t.value="";return}if(t.id=="kv"){kv=t.value;return}if(t.dataset.sk){selKey=t.value;paintOpen();return}const f=t.dataset.f;if(!f)return;
   const s=S.st.find(x=>x.id==t.dataset.s);let v=t.value;if(f=="ad"){v=v.toLocaleUpperCase("tr").trim();s.adr=v.padEnd(25)}if(f=="sinif"){v=v.toLocaleUpperCase("tr");s.snr=v.padEnd(4)}s[f]=v;save();ls()});
-$("#v").addEventListener("input",e=>{const t=e.target;if(t.dataset.ki===undefined)return;const v=t.value.toUpperCase().replace(/[^ABCD-]/g,"");S.keys[kt][+t.dataset.ki]=v;save();t.previousElementSibling.textContent=v.length+"/"+t.maxLength});
+$("#v").addEventListener("input",e=>{const t=e.target;if(t.dataset.kzq!==undefined){(S.kz[kt][kzd]=S.kz[kt][kzd]||[])[+t.dataset.kzq]=t.value;save();return}
+  if(t.dataset.ex!==undefined){S.exam[t.dataset.ex]=t.value;save();return}
+  if(t.dataset.kc!==undefined||t.dataset.kb!==undefined){const v=parseFloat(String(t.value).replace(",","."));if(!isNaN(v)){if(t.dataset.kc!==undefined)S.cfg.k[+t.dataset.kc]=v;else S.cfg[t.dataset.kb]=v;save()}return}
+  if(t.dataset.ki===undefined)return;const v=t.value.toUpperCase().replace(/[^ABCD-]/g,"");S.keys[kt][+t.dataset.ki]=v;save();t.previousElementSibling.textContent=v.length+"/"+t.maxLength});
 go(0);initDB();window.addEventListener("pagehide",()=>local());
 </script></body></html>
